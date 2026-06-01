@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "jest --runInBand",
-    "test:coverage": "jest --coverage",
+    "test": "npm exec jest -- --runInBand",
+    "test:coverage": "npm exec jest -- --coverage",
     "lint": "eslint . --ext .ts"
   },
   "devDependencies": {
