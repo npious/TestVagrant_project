@@ -4,6 +4,8 @@ import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
+export const STORAGE_STATE = path.join(__dirname, '.auth/user.json');
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -37,7 +39,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: path.join(__dirname, '.auth/user.json'),
+        storageState: STORAGE_STATE,
       },
       dependencies: ['setup'],
     },

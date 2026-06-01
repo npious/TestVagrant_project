@@ -4,8 +4,7 @@ import * as path from 'path';
 import { LoginPage } from '../pages/LoginPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { Users, Password } from '../data/users';
-
-export const STORAGE_STATE = path.join(__dirname, '../.auth/user.json');
+import { STORAGE_STATE } from '../playwright.config';
 
 setup('authenticate as standard user', async ({ page }) => {
   // Ensure .auth directory exists on every runner/shard before writing
