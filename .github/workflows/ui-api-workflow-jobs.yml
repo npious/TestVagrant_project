@@ -70,17 +70,17 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
-        working-directory: ui
+        working-directory: playwright-ui-automation
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Install Playwright system deps (cached browsers)
-        working-directory: ui
+        working-directory: playwright-ui-automation
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
       - name: Run Playwright tests (Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
-        working-directory: ui
+        working-directory: playwright-ui-automation
         run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload shard blob report
@@ -88,7 +88,7 @@ jobs:
         if: always()
         with:
           name: playwright-blob-${{ matrix.shardIndex }}
-          path: ui/blob-report/
+          path: playwright-ui-automation/blob-report/
           retention-days: 1
 
   # ── Merge all shard reports into one HTML report ───────────────────────────
@@ -117,17 +117,17 @@ jobs:
         with:
           pattern: playwright-blob-*
           merge-multiple: true
-          path: ui/all-blobs/
+          path: playwright-ui-automation/all-blobs/
 
       - name: Merge into single HTML report
-        working-directory: ui
+        working-directory: playwright-ui-automation
         run: npx playwright merge-reports --reporter html ./all-blobs
 
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: ui/playwright-report/
+          path: playwright-ui-automation/playwright-report/
           retention-days: 14
 
   api-tests:
@@ -156,7 +156,7 @@ jobs:
         run: npm ci
 
       - name: Run Jest tests
-        working-directory: api
+        working-directory: api-automation
         run: npm test
 
       - name: Upload coverage report
@@ -164,5 +164,5 @@ jobs:
         if: always()
         with:
           name: api-coverage
-          path: api/coverage/
+          path: api-automation/coverage/
           retention-days: 14
