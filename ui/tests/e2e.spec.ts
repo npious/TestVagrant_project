@@ -16,7 +16,7 @@ test.describe('E2E: Login → Add to Cart → Checkout', () => {
     checkoutPage,
   }) => {
     // Step 1: Navigate to login page and authenticate
-    await loginPage.goto();
+    await loginPage.goto(); // navigate
     await loginPage.login(Users.STANDARD, Password.VALID);
     await inventoryPage.assertOnInventoryPage();
 
