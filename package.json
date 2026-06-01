@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "ui",
-    "api"
+    "playwright-ui-automation",
+    "api-automation"
   ],
   "scripts": {
-    "test:ui": "npm run test --workspace=ui",
-    "test:api": "npm run test --workspace=api",
+    "test:ui": "npm run test --workspace=playwright-ui-automation",
+    "test:api": "npm run test --workspace=api-automation",
     "test:all": "npm run test:ui && npm run test:api",
     "lint": "npm run lint --workspaces --if-present"
   },
