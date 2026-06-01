@@ -1,0 +1,165 @@
+name: QA Automation Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Which suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ui
+          - api
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  ui-tests:
+    name: UI Tests (Playwright) — Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'ui' || github.event_name != 'workflow_dispatch' }}
+
+    # ── Sharding ──────────────────────────────────────────────────────────────
+    # Each shard runs on its own VM in parallel.
+    # Playwright splits the test suite evenly across shardTotal machines.
+    # To scale up: add more entries to shardIndex e.g. [1, 2, 3, 4]
+    strategy:
+      fail-fast: false   # if shard 1 fails, shards 2 & 3 still run to completion
+      matrix:
+        shardIndex: [1, 2, 3, 4, 5]
+        shardTotal: [5]
+
+    env:
+      BASE_URL: ${{ vars.BASE_URL }}
+      STANDARD_PASSWORD: ${{ secrets.STANDARD_PASSWORD }}
+      USER_STANDARD: ${{ secrets.USER_STANDARD }}
+      USER_LOCKED_OUT: ${{ secrets.USER_LOCKED_OUT }}
+      USER_PROBLEM: ${{ secrets.USER_PROBLEM }}
+      USER_PERFORMANCE_GLITCH: ${{ secrets.USER_PERFORMANCE_GLITCH }}
+      USER_ERROR: ${{ secrets.USER_ERROR }}
+      USER_VISUAL: ${{ secrets.USER_VISUAL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        working-directory: ui
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browsers)
+        working-directory: ui
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run Playwright tests (Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+        working-directory: ui
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+
+      - name: Upload shard blob report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-blob-${{ matrix.shardIndex }}
+          path: ui/blob-report/
+          retention-days: 1
+
+  # ── Merge all shard reports into one HTML report ───────────────────────────
+  ui-report:
+    name: Merge Playwright Reports
+    runs-on: ubuntu-latest
+    needs: ui-tests
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all shard blob reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-blob-*
+          merge-multiple: true
+          path: ui/all-blobs/
+
+      - name: Merge into single HTML report
+        working-directory: ui
+        run: npx playwright merge-reports --reporter html ./all-blobs
+
+      - name: Upload merged HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ui/playwright-report/
+          retention-days: 14
+
+  api-tests:
+    name: API Tests (Jest + Supertest)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'api' || github.event_name != 'workflow_dispatch' }}
+
+    env:
+      BOOKER_BASE_URL: ${{ vars.BOOKER_BASE_URL }}
+      BOOKER_USERNAME: ${{ secrets.BOOKER_USERNAME }}
+      BOOKER_PASSWORD: ${{ secrets.BOOKER_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        working-directory: api
+        run: npm test
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: api/coverage/
+          retention-days: 14

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env.local
+.env
+
+# Playwright
+ui/test-results/
+ui/playwright-report/
+ui/blob-report/
+ui/.auth/
+test-results/
+
+# Jest / API
+api/coverage/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store

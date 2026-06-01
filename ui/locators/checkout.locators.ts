@@ -1,0 +1,15 @@
+export const CheckoutLocators = {
+  firstNameInput: '[data-test="firstName"]',
+  lastNameInput: '[data-test="lastName"]',
+  postalCodeInput: '[data-test="postalCode"]',
+  continueButton: '[data-test="continue"]',
+  finishButton: '[data-test="finish"]',
+  cancelButton: '[data-test="cancel"]',
+  errorMessage: '[data-test="error"]',
+  summarySubtotal: '[data-test="subtotal-label"]',
+  summaryTax: '[data-test="tax-label"]',
+  summaryTotal: '[data-test="total-label"]',
+  completeHeader: '[data-test="complete-header"]',
+  completeText: '[data-test="complete-text"]',
+  backHomeButton: '[data-test="back-to-products"]',
+} as const;
