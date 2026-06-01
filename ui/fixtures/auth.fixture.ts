@@ -1,8 +1,8 @@
 import { test as base } from './base.fixture';
-import * as path from 'path';
+import { STORAGE_STATE } from '../tests/auth.setup';
 
-export const STORAGE_STATE = path.join(__dirname, '../.auth/user.json');
-
+// All tests using this fixture start pre-authenticated.
+// The storageState file is created once by auth.setup.ts before any test runs.
 export const test = base.extend({
   storageState: STORAGE_STATE,
 });
