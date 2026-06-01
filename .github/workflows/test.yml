@@ -2,9 +2,11 @@ name: QA Automation Suite
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+  schedule:
+    - cron: '30 3 * * *'   # 9:00 AM IST daily
   workflow_dispatch:
     inputs:
       suite:
@@ -18,13 +20,13 @@ on:
           - api
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   ui-tests:
     name: UI Tests (Playwright) — Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'ui' || github.event_name != 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'ui')) }}
 
     # ── Sharding ──────────────────────────────────────────────────────────────
     # Each shard runs on its own VM in parallel.
@@ -33,8 +35,8 @@ jobs:
     strategy:
       fail-fast: false   # if shard 1 fails, shards 2 & 3 still run to completion
       matrix:
-        shardIndex: [1, 2, 3, 4, 5]
-        shardTotal: [5]
+        shardIndex: [1, 2]
+        shardTotal: [2]
 
     env:
       BASE_URL: ${{ vars.BASE_URL }}
@@ -131,7 +133,8 @@ jobs:
   api-tests:
     name: API Tests (Jest + Supertest)
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'api' || github.event_name != 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'api')) }}
+
 
     env:
       BOOKER_BASE_URL: ${{ vars.BOOKER_BASE_URL }}
