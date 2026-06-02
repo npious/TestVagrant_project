@@ -3,7 +3,7 @@ import { BookingIdListSchema, BookingSchema } from '../schemas/booking.schema';
 import { createBookingPayload } from '../data/booking.data';
 import { getAuthenticatedClient } from '../utils/auth.helper';
 
-describe('GET /booking', () => {
+describe('Booking Management using GET', () => {
   let client: BookerClient;
 
   beforeAll(async () => {
@@ -12,14 +12,13 @@ describe('GET /booking', () => {
 
   it('should return a list of booking ids', async () => {
     const res = await client.getAllBookings();
-
     expect(res.status).toBe(200);
     BookingIdListSchema.parse(res.body);
     expect(res.body.length).toBeGreaterThan(0);
   });
 });
 
-describe('GET /booking/:id', () => {
+describe('Booking Management using GET by ID', () => {
   let client: BookerClient;
   let createdBookingId: number;
 
@@ -31,7 +30,6 @@ describe('GET /booking/:id', () => {
 
   it('should return booking details for a valid id', async () => {
     const res = await client.getBookingById(createdBookingId);
-
     expect(res.status).toBe(200);
     BookingSchema.parse(res.body);
     expect(res.body.firstname).toBe('John');
@@ -40,7 +38,6 @@ describe('GET /booking/:id', () => {
 
   it('should return 404 for a non-existent booking id', async () => {
     const res = await client.getBookingById(999999999);
-
     expect(res.status).toBe(404);
   });
 });

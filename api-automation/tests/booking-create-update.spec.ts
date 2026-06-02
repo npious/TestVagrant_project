@@ -1,9 +1,10 @@
 import { BookerClient } from '../clients/BookerClient';
 import { BookingResponseSchema, BookingSchema } from '../schemas/booking.schema';
 import { createBookingPayload, updatedBookingPayload } from '../data/booking.data';
+import { UpdateBookingPayload } from '../types/booking.types';
 import { getAuthenticatedClient } from '../utils/auth.helper';
 
-describe('POST /booking', () => {
+describe('Booking Management using POST', () => {
   let client: BookerClient;
 
   beforeAll(async () => {
@@ -13,7 +14,6 @@ describe('POST /booking', () => {
   it('should create a booking and return booking id with details', async () => {
     const payload = createBookingPayload();
     const res = await client.createBooking(payload);
-
     expect(res.status).toBe(200);
     BookingResponseSchema.parse(res.body);
     expect(res.body.bookingid).toBeDefined();
@@ -24,13 +24,12 @@ describe('POST /booking', () => {
   it('should create a booking without optional additionalneeds field', async () => {
     const payload = createBookingPayload({ additionalneeds: undefined });
     const res = await client.createBooking(payload);
-
     expect(res.status).toBe(200);
     expect(res.body.bookingid).toBeDefined();
   });
 });
 
-describe('PUT /booking/:id', () => {
+describe('Booking Management using PUT', () => {
   let client: BookerClient;
   let bookingId: number;
 
@@ -51,11 +50,16 @@ describe('PUT /booking/:id', () => {
     expect(res.body.totalprice).toBe(payload.totalprice);
   });
 
-  it('should return 403 when updating without auth token', async () => {
-    const unauthClient = new BookerClient();
-    // Accessing delete without auth via a fresh unauthenticated client
-    const res = await unauthClient.deleteBookingWithoutAuth(bookingId);
+  it('should return 400 when updating with empty or wrong payloads', async () => {
+    const invalidPayloads: Partial<UpdateBookingPayload>[] = [
+      {},
+      { firstname: 'Jane' },
+      { totalprice: 'invalid' as unknown as number },
+    ];
 
-    expect(res.status).toBe(403);
+    for (const payload of invalidPayloads) {
+      const res = await client.updateBooking(bookingId, payload as UpdateBookingPayload);
+      expect(res.status).toBe(400);
+    }
   });
 });

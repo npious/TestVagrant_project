@@ -48,4 +48,14 @@ test.describe('Shopping Cart & Checkout', () => {
     await checkoutPage.clickContinue();
     await checkoutPage.assertErrorMessage('Postal Code is required');
   });
+
+  test('should navigate back to cart page when cancel is clicked on checkout', async ({
+    cartPage,
+    checkoutPage,
+  }) => {
+    await cartPage.proceedToCheckout();
+    await checkoutPage.assertOnCheckoutStepOne();
+    await checkoutPage.clickCancel();
+    await cartPage.assertOnCartPage();
+  });
 });
