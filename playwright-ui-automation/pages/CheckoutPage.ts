@@ -20,6 +20,10 @@ export class CheckoutPage {
     await this.page.fill(CheckoutLocators.postalCodeInput, info.postalCode);
   }
 
+  async clickCancel() {
+    await this.page.click(CheckoutLocators.cancelButton);
+  }
+
   async clickContinue() {
     await this.page.click(CheckoutLocators.continueButton);
   }

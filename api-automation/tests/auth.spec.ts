@@ -1,7 +1,7 @@
 import { BookerClient } from '../clients/BookerClient';
 import { AuthTokenSchema } from '../schemas/booking.schema';
 
-describe('POST /auth', () => {
+describe('Authentication using POST method', () => {
   let client: BookerClient;
 
   beforeEach(() => {

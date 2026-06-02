@@ -8,24 +8,24 @@ End-to-end test automation for Web UI (SauceDemo) and API (Restful-Booker), buil
 
 ```
 qa-automation/
-├── ui/                          # Playwright UI tests
-│   ├── fixtures/                # Extended test fixtures (base + auth)
-│   ├── locators/                # All element selectors
-│   ├── pages/                   # Page Object Model classes
-│   ├── data/                    # Test data (reads from env)
-│   ├── tests/                   # Test specs + auth setup
+├── playwright-ui-automation/        # Playwright UI tests
+│   ├── fixtures/                    # Extended test fixtures
+│   ├── locators/                    # All element selectors
+│   ├── pages/                       # Page Object Model classes
+│   ├── data/                        # Test data (reads from env)
+│   ├── tests/                       # Test specs + auth setup
 │   └── playwright.config.ts
-├── api/                         # API tests
-│   ├── clients/                 # HTTP client (BookerClient)
-│   ├── schemas/                 # Zod response schemas
-│   ├── types/                   # TypeScript interfaces
-│   ├── data/                    # Payload factories
-│   ├── utils/                   # Auth helper
-│   ├── tests/                   # Test specs
+├── api-automation/                  # API tests
+│   ├── clients/                     # HTTP client (BookerClient)
+│   ├── schemas/                     # Zod response schemas
+│   ├── types/                       # TypeScript interfaces
+│   ├── data/                        # Payload factories
+│   ├── utils/                       # Auth helper
+│   ├── tests/                       # Test specs
 │   └── jest.config.ts
 ├── .github/workflows/
-│   └── test.yml                 # GitHub Actions pipeline
-├── .env.example                 # Environment variable template
+│   └── ui-api-workflow-jobs.yml     # GitHub Actions pipeline
+├── .env.example                     # Environment variable template
 └── README.md
 ```
 
@@ -35,7 +35,7 @@ qa-automation/
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 
 ### 1. Clone and install
@@ -89,25 +89,25 @@ node_modules/.bin/playwright install --with-deps chromium
 
 ```bash
 # All UI tests (headless)
-cd ui && npm test
+cd playwright-ui-automation && npm test
 
 # Headed (watch the browser)
-cd ui && npm run test:headed
+cd playwright-ui-automation && npm run test:headed
 
 # Debug mode
-cd ui && npm run test:debug
+cd playwright-ui-automation && npm run test:debug
 
 # View last HTML report
-cd ui && npm run test:report
+cd playwright-ui-automation && npm run test:report
 ```
 
 ### API Tests
 
 ```bash
-cd api && npm test
+cd api-automation && npm test
 
 # With coverage
-cd api && npm run test:coverage
+cd api-automation && npm run test:coverage
 ```
 
 ### Both suites from root
@@ -120,20 +120,22 @@ npm run test:all
 
 ## Framework Architecture
 
-### UI — Page Object Model + Fixture Composition
+### UI — Page Object Model + Project-level Auth
 
 ```
 Test file
   └── imports from fixtures/base.fixture.ts   (provides typed page objects)
-        └── imports from fixtures/auth.fixture.ts  (provides storageState for pre-auth)
-              └── Page classes (LoginPage, InventoryPage, CartPage, CheckoutPage)
-                    └── Locator files (all selectors in one place)
+        └── Page classes (LoginPage, InventoryPage, CartPage, CheckoutPage)
+              └── Locator files (all selectors in one place)
+  └── Browser context loads storageState from config (skips login for non-auth tests)
 ```
 
 **Key decisions:**
 - **Locators isolated** in `locators/` — one place to update when the UI changes
-- **`auth.fixture.ts`** saves browser session to `.auth/user.json` via Playwright's `storageState` — non-login tests skip the login step entirely (faster, less flaky)
-- **`auth.setup.ts`** runs once as a Playwright "setup project" before all other tests
+- **`auth.setup.ts`** logs in once as a Playwright "setup project" and saves the session to `.auth/user.json` via `storageState`
+- **`storageState` is set at project level** in `playwright.config.ts` — all tests in the `chromium` project start pre-authenticated automatically, no fixture import needed
+- Login tests override with `test.use({ storageState: { cookies: [], origins: [] } })` to start unauthenticated
+- **`video: 'retain-on-failure'`** — records video only when a test fails, saved alongside trace and screenshot for debugging
 - All test data comes from `.env.local` — no credentials in source
 
 ### API — Client + Schema + Factory pattern
@@ -150,26 +152,42 @@ Test file
 - `BookerClient` is stateful (holds token) — `authenticate()` stores it, `requireToken()` guards against unauthenticated calls
 - Two delete methods: `deleteBooking()` (authenticated) and `deleteBookingWithoutAuth()` — negative tests call the right variant explicitly
 - Zod schemas provide runtime type safety on top of status code assertions
+- **`jest.retryTimes(2)`** in `jest.setup.ts` — failed tests retry up to 2 times before marking as failed
 
 ---
 
 ## CI/CD Pipeline
 
-**Trigger:** push/PR to `main` or `develop`, or manual dispatch with suite selector.
+**Workflow file:** `.github/workflows/ui-api-workflow-jobs.yml`
 
-**Jobs run in parallel:**
+### Triggers
+
+| Event | API tests | UI tests |
+|---|---|---|
+| PR opened to `main` | ✅ Required approval check | ❌ Skipped |
+| Push to `main` (after merge) | ❌ Skipped | ✅ Runs |
+| Daily schedule (9:00 AM IST) | ❌ Skipped | ✅ Health check |
+| Manual dispatch | ✅ Configurable via `suite` input | ✅ Configurable via `suite` input |
+
+### Jobs run in parallel
 
 | Job | Runner | Key steps |
 |---|---|---|
-| `ui-tests` | ubuntu-latest | Install deps → Cache browsers → Run Playwright → Upload HTML report |
-| `api-tests` | ubuntu-latest | Install deps → Run Jest → Upload coverage |
+| `ui-tests` | ubuntu-latest, 2 shards | Install deps → Cache browsers → Run Playwright → Upload blob report |
+| `ui-report` | ubuntu-latest | Merge blob reports → Generate HTML report → Upload (skipped if UI didn't run) |
+| `api-tests` | ubuntu-latest | Install deps → Run Jest (2 retries) → Upload coverage |
 
-**Artifacts retained for 14 days:**
-- `playwright-report` — full HTML report with traces/screenshots
-- `playwright-test-results` — raw results on failure only
-- `api-coverage` — Jest coverage report
+### Branch protection (GitHub Settings → Branches → `main`)
 
-**GitHub Secrets required:**
+- **`API Tests (Jest + Supertest)`** is a required status check — PRs cannot merge unless API tests pass
+
+### Artifacts retained
+
+- `playwright-report` — full HTML report with traces/screenshots/video (14 days)
+- `playwright-blob-*` — raw shard results (1 day, used for merging)
+- `api-coverage` — Jest coverage report (14 days)
+
+### GitHub Secrets required
 
 | Secret | Used by |
 |---|---|
@@ -183,7 +201,7 @@ Test file
 | `BOOKER_USERNAME` | API |
 | `BOOKER_PASSWORD` | API |
 
-**GitHub Variables required** (non-sensitive):
+### GitHub Variables required (non-sensitive)
 
 | Variable | Value |
 |---|---|
@@ -196,11 +214,11 @@ Test file
 
 1. Clone the repo and run `npm install`
 2. Copy `.env.example` → `.env.local` and fill in credentials (ask team lead)
-3. Run `cd ui && npx playwright install --with-deps chromium`
+3. Run `cd playwright-ui-automation && npx playwright install --with-deps chromium`
 4. Run `npm run test:all` from root to confirm everything passes
-5. Read `ui/fixtures/base.fixture.ts` to understand how page objects are injected into tests
-6. To add a new UI test: create a spec in `ui/tests/`, import from `fixtures/auth.fixture.ts` (pre-authenticated) or `fixtures/base.fixture.ts` (unauthenticated)
-7. To add a new API test: create a spec in `api/tests/`, use `getAuthenticatedClient()` from `utils/auth.helper.ts`
+5. Read `playwright-ui-automation/fixtures/base.fixture.ts` to understand how page objects are injected into tests
+6. To add a new UI test: create a spec in `playwright-ui-automation/tests/`, import from `fixtures/base.fixture.ts`
+7. To add a new API test: create a spec in `api-automation/tests/`, use `getAuthenticatedClient()` from `utils/auth.helper.ts`
 
 ---
 
@@ -215,7 +233,7 @@ Test file
 | Checkout | Full checkout flow | Missing first name, last name, postal code |
 | E2E | Login → Add to Cart → Checkout → Confirmation | — |
 
-### API (15 tests)
+### API (13 tests)
 
 | Endpoint | Positive | Negative |
 |---|---|---|
